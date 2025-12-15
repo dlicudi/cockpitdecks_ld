@@ -6,7 +6,7 @@ import logging
 
 from PIL import Image, ImageDraw
 
-from cockpitdecks.buttons.representation.hardware import HardwareRepresentation, NO_ICON
+from cockpitdecks.buttons.representation.hardware import HardwareRepresentation
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -20,6 +20,8 @@ class VirtualLLColoredButton(HardwareRepresentation):
     """
 
     REPRESENTATION_NAME = "virtual-ll-coloredbutton"
+
+    # SCHEMA = {}
 
     def __init__(self, button: "Button"):
         HardwareRepresentation.__init__(self, button=button)

@@ -18,7 +18,7 @@ class ColoredLED(Representation):
     REPRESENTATION_NAME = "colored-led"
     REQUIRED_DECK_FEEDBACKS = DECK_FEEDBACK.COLORED_LED
 
-    PARAMETERS = {"colored-led": {"type": "color", "prompt": "Color"}}
+    SCHEMA = {"colored-led": {"type": "color", "meta": {"label": "Color"}}}
 
     def __init__(self, button: "Button"):
         self._color = button._config.get(DECK_FEEDBACK.COLORED_LED.value, button.get_attribute("cockpit-color"))
