@@ -172,16 +172,18 @@ class Loupedeck(DeckWithIcons):
         elif action == CALLBACK_KEYWORD.ROTATE.value:
             state = msg[CALLBACK_KEYWORD.STATE.value] != "left"
             logger.debug(f"Deck {deck.id()} Key {key} = {state}")
-            event = EncoderEvent(deck=self, button=key, clockwise=state)
+            event = EncoderEvent(deck=self, button=key, clockwise=state, autorun=False)
+            event.run(just_do_it=True)
 
         # msg={'id': 24, 'action': 'touchstart', 'screen': 'left', 'key': None, 'x': 38, 'y': 199, 'ts': 1714656052.813476}
         elif action == CALLBACK_KEYWORD.TOUCH_START.value:  # we don't deal with slides now, just push on key
             state = True
+            touch_id = msg[CALLBACK_KEYWORD.IDENTIFIER.value]
 
             screen = msg[CALLBACK_KEYWORD.SCREEN.value]
             if screen in [KW_LEFT, KW_RIGHT]:
                 logger.debug(f"Deck {deck.id()} Key {screen} = {state}")
-                self.touches[msg[CALLBACK_KEYWORD.IDENTIFIER.value]] = msg  # we also register it as a touch event
+                self.touches[touch_id] = msg  # we also register it as a touch event
                 event = PushEvent(deck=self, button=screen, pressed=state)  # Push event
 
             elif CALLBACK_KEYWORD.KEY.value in msg and msg[CALLBACK_KEYWORD.KEY.value] is not None:  # we touched a key, not a side bar
@@ -190,12 +192,12 @@ class Loupedeck(DeckWithIcons):
                     key = int(key)
                 except ValueError:
                     logger.warning(f"invalid button key {key} {msg}")
-                self.touches[msg[CALLBACK_KEYWORD.IDENTIFIER.value]] = msg
+                self.touches[touch_id] = msg
                 logger.debug(f"Deck {deck.id()} Key {key} = {state}")
                 event = PushEvent(deck=self, button=key, pressed=state)
 
             else:
-                self.touches[msg[CALLBACK_KEYWORD.IDENTIFIER.value]] = msg
+                self.touches[touch_id] = msg
                 if SIDE_INDIVIDUAL_KEYS:
                     k = None
                     i = 0

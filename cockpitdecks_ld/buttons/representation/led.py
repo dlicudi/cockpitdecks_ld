@@ -36,14 +36,14 @@ class ColoredLED(Representation):
 
     def get_color(self, base: dict | None = None):
         """
-        Compute color from formula/datarefs if any
-        the color can be a formula but no formula in it.
+        Compute color from formula/datarefs if any.
+        Static colored-led buttons should stay lit with their configured color.
         """
         if base is None:
             base = self._config
         color_str = base.get("color")
         if color_str is None:
-            return self.off_color if self.button.value == 0 else self.color
+            return self.color
 
         # Formula in text
         KW_FORMULA_STR = f"${{{CONFIG_KW.FORMULA.value}}}"  # "${formula}"
@@ -60,7 +60,7 @@ class ColoredLED(Representation):
         self.color = tuple([int(255 * i) for i in color_rgb])  # type: ignore
         logger.debug(f"{color_str}, {hue}, {[(int(hue) % 360)/360,1,1]}, {color_rgb}, {self.color}")
 
-        return self.off_color if self.button.value == 0 else self.number_color
+        return self.color
 
     def render(self):
         color = self.get_color()

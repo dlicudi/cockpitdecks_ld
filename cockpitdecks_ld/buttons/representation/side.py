@@ -4,14 +4,19 @@
 # These buttons are Loupedeck Live specific.
 #
 import logging
+import re
 from PIL import ImageDraw
 from cockpitdecks.resources.color import convert_color
 from cockpitdecks.buttons.representation.icon import Icon
+from cockpitdecks.strvar import TextWithVariables
+from cockpitdecks.variable import Variable
 
 # from cockpitdecks.button import Button
 
 
 logger = logging.getLogger(__name__)
+
+VAR_PATTERN = re.compile(r"\${([^}]+)}")
 
 
 class IconSide(Icon):  # modified Representation IconSide class
@@ -42,14 +47,30 @@ class IconSide(Icon):  # modified Representation IconSide class
         self.side = self._config.get("side")  # multi-labels
         self.centers = self.side.get("centers", [43, 150, 227])  # type: ignore
         self.labels: str | None = self.side.get("labels")  # type: ignore
+        self.label_font = self.get_attribute("label-font")
+        self.label_size = self.get_attribute("label-size", default=16)
+        self.label_color = self.get_attribute("label-color")
         self.label_position = self._config.get("label-position", "cm")  # "centered" on middle of side image
 
     def get_simulator_data(self) -> set:
         datarefs = set()
+        if not self.labels:
+            return datarefs
         for label in self.labels:
             drefs = self.button.scan_datarefs(label)
             if len(drefs) > 0:
                 datarefs = datarefs | drefs
+        return datarefs
+
+    def get_variables(self) -> set:
+        datarefs = set()
+        if not self.labels:
+            return datarefs
+        for label in self.labels:
+            label_text = TextWithVariables(owner=self.button, config=label, prefix="label")
+            value_text = TextWithVariables(owner=self.button, config=label, prefix="text")
+            datarefs |= label_text.get_variables()
+            datarefs |= value_text.get_variables()
         return datarefs
 
     # get_datarefs from old IconSide
@@ -74,103 +95,112 @@ class IconSide(Icon):  # modified Representation IconSide class
         """
         Helper function to get button image and overlay label on top of it for SIDE keys (60x270).
         Side keys can have 3 labels placed in front of each knob.
-        (Currently those labels are static only. Working to make them dynamic.)
         """
         image = super().get_image_for_icon()
 
         if image is None:
             return None
 
-        draw = None
+        if not self.labels:
+            return image
 
-        if self.labels is not None:
-            image = image.copy()  # we will add text over it
-            draw = ImageDraw.Draw(image)
-            inside = round(0.04 * image.width + 0.5)
-            vheight = 38 - inside
+        image = image.copy()
+        draw = ImageDraw.Draw(image)
+        inside = round(0.04 * image.width + 0.5)
+        vheight = 38 - inside
 
-            vcenter = [
-                35,
-                124,
-                213,
-            ]  # this determines the number of acceptable labels, organized vertically
-            cnt = self.side.get("centers")
+        vcenter = [35, 124, 213]
+        cnt = self.side.get("centers")
+        if cnt is not None:
+            vcenter = [round(270 * i / 100, 0) for i in convert_color(cnt)]
 
-            if cnt is not None:
-                vcenter = [round(270 * i / 100, 0) for i in convert_color(cnt)]  # !
+        for li, label in enumerate(self.labels):
+            if li >= len(vcenter):
+                break
 
-            li = 0
-            for label in self.labels:
-                txt = label.get("label")
+            label_text = label.get("label", "")
+            value_text = self._resolve_side_text(label)
 
-                get_text = self.button.get_text(label, root="text")
+            if not label_text and not value_text:
+                continue
 
-                if li >= len(vcenter) or txt is None:
-                    continue
+            lfont = label.get("label-font", self.label_font)
+            lsize = int(label.get("label-size", self.label_size or 16))
+            label_font = self.get_font(lfont, lsize)
 
-                # Managed block from old IconSide
-                # managed = label.get(CONFIG_KW.MANAGED.value)
-                # if managed is not None:
-                #     value = self.button.get_simulation_data_value(managed)
-                #     txto = txt
-                #     if value:
-                #         txt = txt + "•"  # \n•"
-                #     else:
-                #         txt = txt + " "  # \n"
-                #     logger.debug(f"watching {managed}: {value}, {txto} -> {txt}")
+            label_position = label.get("label-position", self.label_position)
+            hpos = label_position[0] if len(label_position) > 0 else "c"
+            vpos = label_position[1] if len(label_position) > 1 else "m"
 
-                txto = get_text
+            w = image.width / 2
+            p = "m"
+            a = "center"
+            if hpos == "l":
+                w = inside
+                p = "l"
+                a = "left"
+            elif hpos == "r":
+                w = image.width - inside
+                p = "r"
+                a = "right"
 
-                lfont = label.get("label-font", self.label_font)
-                lsize = label.get("label-size", self.label_size)
-                font = self.get_font(lfont, lsize)
+            h = vcenter[li] - lsize / 2
+            if vpos == "t":
+                h = vcenter[li] - vheight
+            elif vpos == "b":
+                h = vcenter[li] + vheight - lsize
 
-                # Horizontal centering is not an issue...
-                label_position = label.get("label-position", self.label_position)
-                w = image.width / 2
-                p = "m"
-                a = "center"
-                if label_position == "l":
-                    w = inside
-                    p = "l"
-                    a = "left"
-                elif label_position == "r":
-                    w = image.width - inside
-                    p = "r"
-                    a = "right"
-                # Vertical centering is black magic...
-                h = vcenter[li] - lsize / 2
-                if label_position[1] == "t":
-                    h = vcenter[li] - vheight
-                elif label_position[1] == "b":
-                    h = vcenter[li] + vheight - lsize
+            draw.multiline_text(
+                (w, h),
+                text=label_text,
+                font=label_font,
+                anchor=p + "m",
+                align=a,
+                fill=label.get("label-color", self.label_color),
+            )
 
-                draw.multiline_text(
-                    (w, h),
-                    text=txt,
-                    font=font,
-                    anchor=p + "m",
-                    align=a,
-                    fill=label.get("label-color", self.label_color),  # (image.width / 2, 15)
-                )
-
-                # Text below LABEL
-                tfont = label.get("text-font")
-                tsize = label.get("text-size")
-                tfont = self.get_font(tfont, tsize)
-
-                text_position = h + lsize + 5  # Adjust based on your needs, adding lsize for simplicity
-                draw.text(
-                    (w, text_position),
-                    text=txto,
-                    font=tfont,
-                    anchor=p + "m",
-                    align=a,
-                    fill=label.get("text-color"),
-                )
-
-                li = li + 1
+            tsize = int(label.get("text-size", lsize))
+            tfont_name = label.get("text-font", lfont)
+            text_font = self.get_font(tfont_name, tsize)
+            text_position = h + lsize + 5
+            draw.text(
+                (w, text_position),
+                text=value_text,
+                font=text_font,
+                anchor=p + "m",
+                align=a,
+                fill=label.get("text-color", self.label_color),
+            )
         return image
+
+    def _resolve_side_text(self, label: dict) -> str:
+        text = label.get("text", "")
+        if text is None:
+            return ""
+
+        formula = label.get("formula")
+        if formula is not None and "${formula}" in str(text):
+            value = self.button.execute_formula(formula=formula)
+            fmt = label.get("text-format")
+            if fmt is not None:
+                try:
+                    value = fmt.format(float(value))
+                except Exception:
+                    value = str(value)
+            else:
+                value = str(value)
+            text = str(text).replace("${formula}", str(value))
+
+        def replace_var(match):
+            varname = match.group(1)
+            if varname == "formula":
+                return ""
+            if not Variable.may_be_non_internal_variable(varname):
+                return match.group(0)
+            value = self.button.get_simulator_variable_value(varname, default="")
+            return "" if value is None else str(value)
+
+        return VAR_PATTERN.sub(replace_var, str(text))
 
     def describe(self) -> str:
         return "The representation produces an icon with optional label overlay for larger side buttons on LoupedeckLive."
