@@ -2,6 +2,7 @@
 #
 import os
 import logging
+import time
 from PIL import Image, ImageOps
 
 from Loupedeck.Devices.LoupedeckLive import LoupedeckLive, KW_LEFT, KW_RIGHT, KW_CIRCLE, HAPTIC, CALLBACK_KEYWORD, BUTTONS, KW_KNOB
@@ -35,6 +36,7 @@ class Loupedeck(DeckWithIcons):
     DEVICE_MANAGER = DeviceManager
 
     def __init__(self, name: str, config: dict, cockpit: "Cockpit", device=None):
+        started_at = time.perf_counter()
         DeckWithIcons.__init__(self, name=name, config=config, cockpit=cockpit, device=device)
 
         self.cockpit.set_logging_level(__name__)
@@ -45,6 +47,7 @@ class Loupedeck(DeckWithIcons):
         self.valid = True
 
         self.init()
+        logger.info(f"loupedeck {self.name}: __init__ total took {(time.perf_counter() - started_at) * 1000.0:.1f}ms")
         logger.debug(f"created encoder mapping {self.get_encoder_map()}")
 
     # #######################################
@@ -451,8 +454,12 @@ class Loupedeck(DeckWithIcons):
         if self.device is None:
             logger.warning(f"loupedeck {self.name}: no device")
             return
+        started_at = time.perf_counter()
         self.device.set_callback(self.key_change_callback)
+        logger.info(f"deck {self.name}: start set_callback took {(time.perf_counter() - started_at) * 1000.0:.1f}ms")
+        device_start_at = time.perf_counter()
         self.device.start()  # restart it if it was terminated
+        logger.info(f"deck {self.name}: start device.start took {(time.perf_counter() - device_start_at) * 1000.0:.1f}ms")
         logger.info(f"deck {self.name} started")
 
     def terminate(self, disconnected: bool = False):

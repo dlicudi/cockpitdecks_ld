@@ -73,6 +73,19 @@ class IconSide(Icon):  # modified Representation IconSide class
             datarefs |= value_text.get_variables()
         return datarefs
 
+    def get_current_values(self):
+        if not self.labels:
+            return ()
+        states = []
+        for label in self.labels:
+            states.append(
+                {
+                    "label": label.get("label", ""),
+                    "value": self._resolve_side_text(label),
+                }
+            )
+        return tuple(states)
+
     # get_datarefs from old IconSide
     # def get_simulator_data(self):
     #     if self.datarefs is None:
