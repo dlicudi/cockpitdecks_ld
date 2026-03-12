@@ -69,6 +69,8 @@ Source = "https://github.com/devleaks/cockpitdecks_ld"
 #
 [tool.ruff]
 line-length = 160
+
+[tool.ruff.lint]
 select = [
     "E",
     "F",
