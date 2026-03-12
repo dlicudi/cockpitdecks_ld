@@ -253,7 +253,7 @@ class Loupedeck(DeckWithIcons):
                         "end_key": kend,
                         "end_x": msg[CALLBACK_KEYWORD.X.value],
                         "end_y": msg[CALLBACK_KEYWORD.Y.value],
-                        "end_y": msg[CALLBACK_KEYWORD.TIMESTAMP.value],
+                        "end_ts": msg[CALLBACK_KEYWORD.TIMESTAMP.value],
                         "diff_x": dx,
                         "diff_y": dy,
                         "diff_ts": dts,
