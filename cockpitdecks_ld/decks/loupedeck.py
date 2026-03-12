@@ -56,6 +56,9 @@ class Loupedeck(DeckWithIcons):
     #
     def get_encoder_map(self):
         bdef = self.deck_type.filter({DECK_KW.ACTION.value: "encoder"})
+        if not bdef:
+            logger.warning("no encoder definition found in deck type")
+            return {}
         prefix = bdef[0].get(DECK_KW.PREFIX.value)
         new_map = {}
         idx = 0
@@ -164,6 +167,9 @@ class Loupedeck(DeckWithIcons):
                 try:
                     num = int(key)
                     bdef = self.deck_type.filter({DECK_KW.FEEDBACK.value: "colored-led"})
+                    if not bdef:
+                        logger.warning("no colored-led definition found in deck type")
+                        return
                     prefix = bdef[0].get(DECK_KW.PREFIX.value)
                     key = f"{prefix}{key}"
                 except ValueError:
@@ -360,6 +366,9 @@ class Loupedeck(DeckWithIcons):
             logger.warning("button returned no representation color, using default")
             color = self.get_attribute("color")
         bdef = self.deck_type.filter({DECK_KW.FEEDBACK.value: "colored-led"})
+        if not bdef:
+            logger.warning("no colored-led definition found in deck type")
+            return
         prefix = bdef[0].get(DECK_KW.PREFIX.value)
         key = button.index.lower().replace(prefix, "")
         if key == "0":
