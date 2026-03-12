@@ -106,11 +106,11 @@ class Loupedeck(DeckWithIcons):
 
         fn = os.path.join(os.path.dirname(__file__), "..", RESOURCES_FOLDER, self.wallpaper)
         image = create_full_deck_sized_image(fn)
-        image_left = image.copy().crop((0, 0, 60, image.height))
+        image_left = image.crop((0, 0, 60, image.height))
         self.device.draw_left_image(image_left)
-        image_center = image.copy().crop((60, 0, 420, image.height))
+        image_center = image.crop((60, 0, 420, image.height))
         self.device.draw_center_image(image_center)
-        image_right = image.copy().crop((image.width - 60, 0, image.width, image.height))
+        image_right = image.crop((image.width - 60, 0, image.width, image.height))
         self.device.draw_right_image(image_right)
 
         # Add index 0 only button:
