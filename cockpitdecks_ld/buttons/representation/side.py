@@ -208,6 +208,10 @@ class IconSide(Icon):  # modified Representation IconSide class
             varname = match.group(1)
             if varname == "formula":
                 return ""
+            if Variable.is_internal_variable(varname):
+                var = self.button.sim.get_internal_variable(name=varname, is_string=True)
+                value = var.value
+                return "" if value is None else str(value)
             if not Variable.may_be_non_internal_variable(varname):
                 return match.group(0)
             value = self.button.get_simulator_variable_value(varname, default="")
