@@ -2,6 +2,7 @@
 #
 import os
 import logging
+import threading
 import time
 from PIL import Image, ImageOps
 
@@ -44,6 +45,7 @@ class Loupedeck(DeckWithIcons):
         self.touches = {}
         self.monitoring_thread = None
         self._last_native_buffer = {}  # key -> bytes: cache last sent native buffer per key
+        self._device_write_lock = threading.Lock()
 
         self.valid = True
 
@@ -343,10 +345,11 @@ class Loupedeck(DeckWithIcons):
         from Loupedeck.ImageHelpers import PILHelper
         native_buf = PILHelper.to_native_format(key, image)
         cache_key = str(key)
-        if self._last_native_buffer.get(cache_key) == native_buf:
-            return  # image unchanged, skip serial write
-        self._last_native_buffer[cache_key] = native_buf
-        self.device.set_key_image(cache_key, native_buf)
+        with self._device_write_lock:
+            if self._last_native_buffer.get(cache_key) == native_buf:
+                return  # image unchanged, skip serial write
+            self._last_native_buffer[cache_key] = native_buf
+            self.device.set_key_image(cache_key, native_buf)
 
     def _set_key_image(self, button: Button):  # idx: int, image: str, label: str = None):
         if self.device is None:
@@ -379,7 +382,8 @@ class Loupedeck(DeckWithIcons):
         key = button.index.lower().replace(prefix, "")
         if key == "0":
             key = KW_CIRCLE
-        self.device.set_button_color(key, color)
+        with self._device_write_lock:
+            self.device.set_button_color(key, color)
 
     def print_page(self, page: Page):
         """
