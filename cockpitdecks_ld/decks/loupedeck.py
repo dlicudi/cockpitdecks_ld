@@ -43,6 +43,7 @@ class Loupedeck(DeckWithIcons):
 
         self.touches = {}
         self.monitoring_thread = None
+        self._last_native_buffer = {}  # key -> bytes: cache last sent native buffer per key
 
         self.valid = True
 
@@ -339,9 +340,13 @@ class Loupedeck(DeckWithIcons):
         self.device.vibrate(pattern)
 
     def set_key_icon(self, key, image):
-        if image.mode != "RGB":
-            image = image.convert("RGB")
-        self.device.set_key_image(key, image)
+        from Loupedeck.ImageHelpers import PILHelper
+        native_buf = PILHelper.to_native_format(key, image)
+        cache_key = str(key)
+        if self._last_native_buffer.get(cache_key) == native_buf:
+            return  # image unchanged, skip serial write
+        self._last_native_buffer[cache_key] = native_buf
+        self.device.set_key_image(cache_key, native_buf)
 
     def _set_key_image(self, button: Button):  # idx: int, image: str, label: str = None):
         if self.device is None:
@@ -455,6 +460,21 @@ class Loupedeck(DeckWithIcons):
             logger.info(f"button: {button.name}: do nothing representation for {type(self).__name__}")
         else:
             logger.warning(f"button: {button.name}: not a valid representation type {type(representation).__name__} for {type(self).__name__}")
+
+    # #######################################
+    #
+    # Deck Specific Functions : Page changes
+    #
+    def change_page(self, page: str | None = None) -> str | None:
+        self._last_native_buffer.clear()  # new page, reset cache
+        if self.device is not None and hasattr(self.device, "begin_batch"):
+            self.device.begin_batch()
+        try:
+            result = super().change_page(page)
+        finally:
+            if self.device is not None and hasattr(self.device, "end_batch"):
+                self.device.end_batch()
+        return result
 
     # #######################################
     #
