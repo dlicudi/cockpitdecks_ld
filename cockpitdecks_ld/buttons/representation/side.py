@@ -6,6 +6,7 @@
 import logging
 import re
 from PIL import ImageDraw
+from cockpitdecks.pil_sync import PIL_RENDER_LOCK
 from cockpitdecks.resources.color import convert_color
 from cockpitdecks.buttons.representation.icon import Icon
 from cockpitdecks.strvar import TextWithVariables
@@ -163,27 +164,29 @@ class IconSide(Icon):  # modified Representation IconSide class
             elif vpos == "b":
                 h = vcenter[li] + vheight - lsize
 
-            draw.multiline_text(
-                (w, h),
-                text=label_text,
-                font=label_font,
-                anchor=p + "m",
-                align=a,
-                fill=label.get("label-color", self.label_color),
-            )
+            with PIL_RENDER_LOCK:
+                draw.multiline_text(
+                    (w, h),
+                    text=label_text,
+                    font=label_font,
+                    anchor=p + "m",
+                    align=a,
+                    fill=label.get("label-color", self.label_color),
+                )
 
             tsize = int(label.get("text-size", lsize))
             tfont_name = label.get("text-font", lfont)
             text_font = self.get_font(tfont_name, tsize)
             text_position = h + lsize + 5
-            draw.text(
-                (w, text_position),
-                text=value_text,
-                font=text_font,
-                anchor=p + "m",
-                align=a,
-                fill=label.get("text-color", self.label_color),
-            )
+            with PIL_RENDER_LOCK:
+                draw.text(
+                    (w, text_position),
+                    text=value_text,
+                    font=text_font,
+                    anchor=p + "m",
+                    align=a,
+                    fill=label.get("text-color", self.label_color),
+                )
         return image
 
     def _resolve_side_text(self, label: dict) -> str:

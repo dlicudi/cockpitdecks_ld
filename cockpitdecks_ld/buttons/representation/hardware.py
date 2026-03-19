@@ -7,6 +7,7 @@ import logging
 from PIL import Image, ImageDraw
 
 from cockpitdecks.buttons.representation.hardware import HardwareRepresentation
+from cockpitdecks.pil_sync import PIL_RENDER_LOCK
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -64,14 +65,15 @@ class VirtualLLColoredButton(HardwareRepresentation):
             )
         else:
             font = self.get_font(self.get_attribute("font"), int(self.radius))  # (standard font)
-            draw.text(
-                (self.radius, self.radius),
-                text=str(self.number),
-                fill=self.number_color,
-                font=font,
-                anchor="mm",
-                align="center",
-            )
+            with PIL_RENDER_LOCK:
+                draw.text(
+                    (self.radius, self.radius),
+                    text=str(self.number),
+                    fill=self.number_color,
+                    font=font,
+                    anchor="mm",
+                    align="center",
+                )
         return image
 
     def describe(self) -> str:
