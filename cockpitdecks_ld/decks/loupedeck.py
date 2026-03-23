@@ -187,8 +187,9 @@ class Loupedeck(DeckWithIcons):
         elif action == CALLBACK_KEYWORD.ROTATE.value:
             state = msg[CALLBACK_KEYWORD.STATE.value] != "left"
             logger.debug(f"Deck {deck.id()} Key {key} = {state}")
-            event = EncoderEvent(deck=self, button=key, clockwise=state, autorun=False)
-            event.run(just_do_it=True)
+            # Match push/touch: enqueue for Cockpit's event loop (see cockpit.start_event_loop).
+            # run(just_do_it=True) on the device callback thread can misbehave under PyInstaller / native hooks.
+            EncoderEvent(deck=self, button=key, clockwise=state, autorun=True)
 
         # msg={'id': 24, 'action': 'touchstart', 'screen': 'left', 'key': None, 'x': 38, 'y': 199, 'ts': 1714656052.813476}
         elif action == CALLBACK_KEYWORD.TOUCH_START.value:  # we don't deal with slides now, just push on key
