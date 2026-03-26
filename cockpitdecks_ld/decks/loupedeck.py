@@ -369,6 +369,8 @@ class Loupedeck(DeckWithIcons):
             return
         image = button.get_representation()
         if image is not None:
+            if not button.on_current_page():
+                return  # page changed while image was being generated
             image = self.scale_icon_for_key(index=button.index, image=image)
             self.set_key_icon(button.index, image)
         else:
