@@ -58,6 +58,9 @@ class Loupedeck(DeckWithIcons):
     # Deck Specific Functions : Definition
     #
     def requires_sequential_button_rendering_on_free_threaded_python(self) -> bool:
+        return False
+
+    def allows_parallel_button_rendering(self) -> bool:
         return True
 
     def get_encoder_map(self):
@@ -348,16 +351,15 @@ class Loupedeck(DeckWithIcons):
     def set_key_icon(self, key, image):
         from Loupedeck.ImageHelpers import PILHelper
         cache_key = str(key)
-        # Free-threaded Python exposed allocator corruption while converting multiple
-        # button images concurrently, so keep the helper conversion and device write
-        # in the same critical section for this deck.
-        with self._icon_render_lock:
-            native_buf = PILHelper.to_native_format(key, image)
-            if self._last_native_buffer.get(cache_key) == native_buf:
-                return  # image unchanged, skip serial write
-            self._last_native_buffer[cache_key] = native_buf
-            with self._device_write_lock:
-                self.device.set_key_image(cache_key, native_buf)
+        # Convert to native format outside the hardware write lock to allow
+        # multiple button threads to process images concurrently.
+        # Only the final Serial/USB write is serialized.
+        native_buf = PILHelper.to_native_format(key, image)
+        if self._last_native_buffer.get(cache_key) == native_buf:
+            return  # image unchanged, skip serial write
+        self._last_native_buffer[cache_key] = native_buf
+        with self._device_write_lock:
+            self.device.set_key_image(cache_key, native_buf)
 
     def _set_key_image(self, button: Button):  # idx: int, image: str, label: str = None):
         if self.device is None:
