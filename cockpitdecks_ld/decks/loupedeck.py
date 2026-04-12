@@ -77,6 +77,108 @@ class Loupedeck(DeckWithIcons):
                 idx = idx + 1
         return new_map
 
+    def preprocess_buttons(self, buttons: list, page: "Page") -> list:
+        """Synthesise left/right screen buttons from encoder side-display configs.
+
+        Physical layout of Loupedeck Live:
+          Left screen  ← e0 (row 0), e1 (row 1), e2 (row 2)
+          Right screen ← e3 (row 0), e4 (row 1), e5 (row 2)
+
+        Supported authoring styles:
+        - Legacy: encoder entries with a nested ``display:`` block.
+        - Current: encoder entries with ``representation: side-display`` and
+          regular top-level label/text fields.
+
+        Old explicit left/right screen buttons are left untouched for backward compatibility.
+        """
+        buttons = [self.normalize_button_config(button) if isinstance(button, dict) else button for button in buttons]
+
+        LEFT_ENCODERS = ["e0", "e1", "e2"]
+        RIGHT_ENCODERS = ["e3", "e4", "e5"]
+        ALL_ENCODERS = set(LEFT_ENCODERS + RIGHT_ENCODERS)
+        SIDE_DISPLAY_KEYS = {
+            "label",
+            "label-color",
+            "label-size",
+            "label-font",
+            "label-position",
+            "text",
+            "text-color",
+            "text-size",
+            "text-font",
+            "text-position",
+            "text-format",
+            "formula",
+        }
+
+        # Single pass: detect side-display authoring and collect indices simultaneously.
+        indices: set = set()
+        has_side_display = False
+        for b in buttons:
+            idx = b.get("index")
+            indices.add(idx)
+            if idx in ALL_ENCODERS and ("display" in b or str(b.get("representation") or "").strip() in {"side-display", "side"}):
+                has_side_display = True
+        if not has_side_display or "left" in indices or "right" in indices:
+            return buttons
+
+        # Read screen-level settings from the page config (main file or merged includes)
+        merged = getattr(page, "_defaults", {})
+        screen_config = merged.get("screen") or page._config.get("screen") or {}
+        icon_color = screen_config.get("background", "Black")
+        render_cooldown = screen_config.get("render-cooldown-ms")
+
+        # Collect display blocks keyed by encoder position for each side.
+        # Dict keying preserves correct row placement for non-contiguous encoders
+        # (e.g. radio.yaml uses e0, e2, e3, e5 — row 1 is empty on each side).
+        left_displays: dict[int, dict] = {}
+        right_displays: dict[int, dict] = {}
+        new_buttons: list = []
+
+        for btn in buttons:
+            idx = btn.get("index")
+            if idx in ALL_ENCODERS:
+                btn = dict(btn)
+                display = btn.pop("display", None)
+                if not isinstance(display, dict):
+                    display = {}
+                rep = str(btn.get("representation") or "").strip()
+                if rep in {"side-display", "side"}:
+                    if not display:
+                        display = {key: btn.get(key) for key in SIDE_DISPLAY_KEYS if btn.get(key) not in (None, "")}
+                    btn.pop("representation", None)
+                    for key in SIDE_DISPLAY_KEYS:
+                        btn.pop(key, None)
+                if idx in LEFT_ENCODERS:
+                    left_displays[LEFT_ENCODERS.index(idx)] = display
+                else:
+                    right_displays[RIGHT_ENCODERS.index(idx)] = display
+            new_buttons.append(btn)
+
+        # Always emit one row per encoder per side, padding gaps with empty dicts
+        # so the renderer places labels at the correct vertical positions.
+        left_labels = [left_displays.get(i, {}) for i in range(len(LEFT_ENCODERS))] if left_displays else []
+        right_labels = [right_displays.get(i, {}) for i in range(len(RIGHT_ENCODERS))] if right_displays else []
+
+        def make_screen_button(index: str, name: str, labels: list) -> dict:
+            btn: dict = {
+                "index": index,
+                "name": name,
+                "activation": "none",
+                "representation": "side-display",
+                "side": {"icon-color": icon_color, "labels": labels},
+            }
+            if render_cooldown is not None:
+                btn["render-cooldown-ms"] = render_cooldown
+            return btn
+
+        if left_labels:
+            new_buttons.append(make_screen_button("left", "left_screen", left_labels))
+        if right_labels:
+            new_buttons.append(make_screen_button("right", "right_screen", right_labels))
+
+        return new_buttons
+
     def make_default_page(self):
         # Generates an image that is correctly sized to fit across all keys of a given
         #

@@ -189,23 +189,33 @@ class IconSide(Icon):  # modified Representation IconSide class
                 )
         return image
 
+    @staticmethod
+    def _apply_text_format(value, fmt: str | None) -> str:
+        """Format a formula result as a string, applying an optional Python format spec."""
+        if fmt is not None:
+            try:
+                return fmt.format(float(value))
+            except Exception:
+                pass
+        return str(value)
+
     def _resolve_side_text(self, label: dict) -> str:
         text = label.get("text", "")
         if text is None:
             return ""
 
         formula = label.get("formula")
-        if formula is not None and "${formula}" in str(text):
-            value = self.button.execute_formula(formula=formula)
-            fmt = label.get("text-format")
-            if fmt is not None:
-                try:
-                    value = fmt.format(float(value))
-                except Exception:
-                    value = str(value)
-            else:
-                value = str(value)
-            text = str(text).replace("${formula}", str(value))
+        if formula is not None:
+            # Old format: explicit formula: key with ${formula} placeholder in text
+            if "${formula}" in str(text):
+                value = self.button.execute_formula(formula=formula)
+                formatted = self._apply_text_format(value, label.get("text-format"))
+                text = str(text).replace("${formula}", formatted)
+        elif VAR_PATTERN.search(str(text)):
+            # New format: text IS the expression (dataref ref + optional RPN operators).
+            # Evaluate the whole text as a formula, then apply text-format.
+            value = self.button.execute_formula(formula=str(text))
+            return self._apply_text_format(value, label.get("text-format"))
 
         def replace_var(match):
             varname = match.group(1)
@@ -224,3 +234,7 @@ class IconSide(Icon):  # modified Representation IconSide class
 
     def describe(self) -> str:
         return "The representation produces an icon with optional label overlay for larger side buttons on LoupedeckLive."
+
+
+class SideDisplay(IconSide):
+    REPRESENTATION_NAME = "side-display"

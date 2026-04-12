@@ -1,3 +1,3 @@
-from .side import IconSide
+from .side import IconSide, SideDisplay
 from .led import ColoredLED
 from .hardware import VirtualLLColoredButton
