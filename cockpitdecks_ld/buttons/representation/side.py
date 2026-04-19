@@ -8,7 +8,8 @@ import re
 from PIL import ImageDraw
 from cockpitdecks.pil_sync import PIL_RENDER_LOCK
 from cockpitdecks.resources.color import convert_color
-from cockpitdecks.buttons.representation.icon import Icon
+from cockpitdecks.buttons.representation.icon import Icon, IconBase
+from cockpitdecks.buttons.representation.parameters import PARAM_LABEL, PARAM_TEXT
 from cockpitdecks.strvar import TextWithVariables
 from cockpitdecks.variable import Variable
 
@@ -52,6 +53,7 @@ class IconSide(Icon):  # modified Representation IconSide class
         self.label_size = self.get_attribute("label-size", default=16)
         self.label_color = self.get_attribute("label-color")
         self.label_position = self._config.get("label-position", "cm")  # "centered" on middle of side image
+        self.text_font = self.get_attribute("text-font")
 
     def get_simulator_data(self) -> set:
         datarefs = set()
@@ -175,7 +177,7 @@ class IconSide(Icon):  # modified Representation IconSide class
                 )
 
             tsize = int(label.get("text-size", lsize))
-            tfont_name = label.get("text-font", lfont)
+            tfont_name = label.get("text-font", self.text_font or lfont)
             text_font = self.get_font(tfont_name, tsize)
             text_position = h + lsize + 5
             with PIL_RENDER_LOCK:
@@ -238,3 +240,21 @@ class IconSide(Icon):  # modified Representation IconSide class
 
 class SideDisplay(IconSide):
     REPRESENTATION_NAME = "side-display"
+    EDITOR_FAMILY = "Basic"
+    EDITOR_LABEL = "Loupedeck Side Display"
+    EDITOR_HINT = "Single-slot side panel for Loupedeck Live encoder buttons (eN index)."
+
+    PARAMETERS = IconBase.PARAMETERS | PARAM_LABEL | PARAM_TEXT | {
+        "text-format": {
+            "label": "Text Format",
+            "type": "string",
+            "hint": "Python format string applied to evaluated text, e.g. {0:01.0f}%",
+            "group": "Display",
+        },
+        "formula": {
+            "label": "Formula",
+            "type": "string",
+            "hint": "Explicit formula (legacy). Use text with ${formula} placeholder, or put the expression directly in text.",
+            "group": "Display",
+        },
+    }
