@@ -18,10 +18,10 @@ class ColoredLED(Representation):
     REPRESENTATION_NAME = "colored-led"
     REQUIRED_DECK_FEEDBACKS = DECK_FEEDBACK.COLORED_LED
 
-    SCHEMA = {"colored-led": {"type": "color", "meta": {"label": "Color"}}}
+    SCHEMA = {"color": {"type": "color", "meta": {"label": "Color"}}}
 
     def __init__(self, button: "Button"):
-        self._color = button._config.get(DECK_FEEDBACK.COLORED_LED.value, button.get_attribute("cockpit-color"))
+        self._color = button._config.get("color", button.get_attribute("cockpit-color"))
         self.color = (128, 128, 256)
         Representation.__init__(self, button=button)
         self.off_color = self.get_attribute("off-color", default=(0, 0, 0))
@@ -53,8 +53,10 @@ class ColoredLED(Representation):
             if formula is not None:
                 hue = self.button.execute_formula(formula=formula)
         else:
-            hue = int(color_str)
-            logger.warning(f"button {self.button_name}: color contains {KW_FORMULA_STR} but no {CONFIG_KW.FORMULA.value} attribute found")
+            try:
+                hue = int(color_str)
+            except (ValueError, TypeError):
+                return convert_color(color_str)
 
         color_rgb = colorsys.hsv_to_rgb((int(hue) % 360) / 360, 1, 1)
         self.color = tuple([int(255 * i) for i in color_rgb])  # type: ignore
